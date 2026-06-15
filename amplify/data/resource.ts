@@ -1,32 +1,57 @@
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-// 1. ⚠️ 注意：确保你在同一级或上级目录有创建好的 lambda 函数，并在这里正确 import 它
-import { createLivenessSession as livenessLambda } from "../functions/create-liveness-session/resource";
 
+/*== STEP 1 ===============================================================
+The section below creates a Todo database table with a "content" field. Try
+adding a new "isDone" field as a boolean. The authorization rule below
+specifies that any user authenticated via an API key can "create", "read",
+"update", and "delete" any "Todo" records.
+=========================================================================*/
 const schema = a.schema({
-  // == 原有的 Todo 保持不变 ==
-  Todo: a
-    .model({
-      content: a.string(),
-    })
-    .authorization((allow) => [allow.publicApiKey()]),
-
-  // == 🚀 新增：活体检测自定义 Query ==
-  createLivenessSession: a
-    .query()
-    .returns(a.json()) // 声明返回结构为 JSON 字符串
-    .handler(a.handler.function(livenessLambda)) // 将这个接口绑定到你的 Lambda 函数
-    .authorization((allow) => [allow.authenticated()]), // 🔒 严格限制：只有登录后的用户才能调用
+  Todo: a
+    .model({
+      content: a.string(),
+    })
+    .authorization((allow) => [allow.publicApiKey()]),
 });
 
 export type Schema = ClientSchema<typeof schema>;
 
 export const data = defineData({
-  schema,
-  authorizationModes: {
-    // 2. ⚠️ 极其重要：因为增加了用户认证规则，这里必须把默认授权模式改为 userPool (Cognito)
-    defaultAuthorizationMode: "userPool", 
-    apiKeyAuthorizationMode: {
-      expiresInDays: 30,
-    },
-  },
+  schema,
+  authorizationModes: {
+    defaultAuthorizationMode: "apiKey",
+    // API Key is used for a.allow.public() rules
+    apiKeyAuthorizationMode: {
+      expiresInDays: 30,
+    },
+  },
 });
+
+/*== STEP 2 ===============================================================
+Go to your frontend source code. From your client-side code, generate a
+Data client to make CRUDL requests to your table. (THIS SNIPPET WILL ONLY
+WORK IN THE FRONTEND CODE FILE.)
+
+Using JavaScript or Next.js React Server Components, Middleware, Server 
+Actions or Pages Router? Review how to generate Data clients for those use
+cases: https://docs.amplify.aws/gen2/build-a-backend/data/connect-to-API/
+=========================================================================*/
+
+/*
+"use client"
+import { generateClient } from "aws-amplify/data";
+import type { Schema } from "@/amplify/data/resource";
+
+const client = generateClient<Schema>() // use this Data client for CRUDL requests
+*/
+
+/*== STEP 3 ===============================================================
+Fetch records from the database and use them in your frontend component.
+(THIS SNIPPET WILL ONLY WORK IN THE FRONTEND CODE FILE.)
+=========================================================================*/
+
+/* For example, in a React component, you can use this snippet in your
+  function's RETURN statement */
+// const { data: todos } = await client.models.Todo.list()
+
+// return <ul>{todos.map(todo => <li key={todo.id}>{todo.content}</li>)}</ul>
